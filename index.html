@@ -68,7 +68,7 @@
   .stat span{font-family:"Space Grotesk";font-size:11px;letter-spacing:2px;color:var(--muted);margin-left:8px;text-transform:uppercase}
   .stats .sep{width:1px;height:26px;background:rgba(255,255,255,.18)}
 
-  .strip{position:relative;z-index:2;background:linear-gradient(90deg,rgba(20,184,166,.18),rgba(167,139,250,.14));border-top:1px solid rgba(94,234,212,.25);backdrop-filter:blur(6px)}
+  .strip{position:relative;z-index:2;background:linear-gradient(90deg,rgba(20,184,166,.18),rgba(167,139,250,.14));border-top:1px solid rgba(94,234,212,.25)}
   .strip .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:68px;flex-wrap:wrap;padding-top:10px;padding-bottom:10px}
   .strip .l{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
   .strip .mono{color:var(--mint)}
@@ -521,10 +521,32 @@ const cvs = document.getElementById('sky'), ctx = cvs.getContext('2d');
 let W, H, dpr, buildings = [], stars = [], spots = [], depots = [], drones = [], mouse = {x:0, y:0};
 
 function resize(){
-  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  dpr = Math.min(window.devicePixelRatio || 1, 1.5);
   W = cvs.clientWidth; H = cvs.clientHeight;
   cvs.width = W*dpr; cvs.height = H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
   build();
+  bakeBg();
+  if (!running) loop(true);
+}
+
+/* 매 프레임 같은 하늘 · 빛 번짐 · 왼쪽 어둡게 를 미리 한 장으로 그려 둠 (매번 새로 계산하지 않게) */
+let bgCvs, vigCvs;
+function bakeBg(){
+  const mk = () => { const c = document.createElement('canvas'); c.width = W*dpr; c.height = H*dpr; const x = c.getContext('2d'); x.setTransform(dpr,0,0,dpr,0,0); return [c, x]; };
+  let x; [bgCvs, x] = mk();
+  const g = x.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#0b1120'); g.addColorStop(.6,'#111c35'); g.addColorStop(1,'#16264a');
+  x.fillStyle=g; x.fillRect(0,0,W,H);
+  const b1 = x.createRadialGradient(W*.78,H*.3,0,W*.78,H*.3,W*.35);
+  b1.addColorStop(0,'rgba(94,234,212,.10)'); b1.addColorStop(1,'rgba(94,234,212,0)');
+  x.fillStyle=b1; x.fillRect(0,0,W,H);
+  const b2 = x.createRadialGradient(W*.55,H*.75,0,W*.55,H*.75,W*.3);
+  b2.addColorStop(0,'rgba(167,139,250,.08)'); b2.addColorStop(1,'rgba(167,139,250,0)');
+  x.fillStyle=b2; x.fillRect(0,0,W,H);
+  [vigCvs, x] = mk();
+  const v = x.createLinearGradient(0,0,W*.6,0);
+  v.addColorStop(0,'rgba(11,17,32,.8)'); v.addColorStop(1,'rgba(11,17,32,0)');
+  x.fillStyle=v; x.fillRect(0,0,W*.6,H);
 }
 
 function build(){
@@ -596,21 +618,12 @@ function drawDrone(x, y, s, boxes, time, tilt){
   ctx.restore();
 }
 
-let frame = 0;
-function loop(){
+let frame = 0, running = false, heroVisible = true;
+function loop(once){
   frame++;
   const px = (mouse.x - W/2) * .01;
 
-  const g = ctx.createLinearGradient(0,0,0,H);
-  g.addColorStop(0,'#0b1120'); g.addColorStop(.6,'#111c35'); g.addColorStop(1,'#16264a');
-  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
-
-  const b1 = ctx.createRadialGradient(W*.78,H*.3,0,W*.78,H*.3,W*.35);
-  b1.addColorStop(0,'rgba(94,234,212,.10)'); b1.addColorStop(1,'rgba(94,234,212,0)');
-  ctx.fillStyle=b1; ctx.fillRect(0,0,W,H);
-  const b2 = ctx.createRadialGradient(W*.55,H*.75,0,W*.55,H*.75,W*.3);
-  b2.addColorStop(0,'rgba(167,139,250,.08)'); b2.addColorStop(1,'rgba(167,139,250,0)');
-  ctx.fillStyle=b2; ctx.fillRect(0,0,W,H);
+  ctx.setTransform(1,0,0,1,0,0); ctx.drawImage(bgCvs, 0, 0); ctx.setTransform(dpr,0,0,dpr,0,0);
 
   for (const s of stars){ ctx.globalAlpha = .3 + .3*Math.sin(frame*.03 + s.t);
     ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(s.x - px*.3, s.y, s.r, 0, 7); ctx.fill(); }
@@ -684,17 +697,21 @@ function loop(){
     drawDrone(p.x, p.y+hover, d.size, Math.max(0, boxesLeft), frame, tilt);
   }
 
-  const v = ctx.createLinearGradient(0,0,W*.6,0);
-  v.addColorStop(0,'rgba(11,17,32,.8)'); v.addColorStop(1,'rgba(11,17,32,0)');
-  ctx.fillStyle=v; ctx.fillRect(0,0,W*.6,H);
+  ctx.setTransform(1,0,0,1,0,0); ctx.drawImage(vigCvs, 0, 0); ctx.setTransform(dpr,0,0,dpr,0,0);
 
-  requestAnimationFrame(loop);
+  if (once === true) return;
+  if (heroVisible && !document.hidden) requestAnimationFrame(loop);
+  else running = false;
 }
+/* 첫 화면이 안 보이거나 탭이 숨으면 애니메이션을 멈춤 (스크롤할 때 끊김 방지) */
+function start(){ if (!running && heroVisible && !document.hidden){ running = true; requestAnimationFrame(loop); } }
+new IntersectionObserver(es => { heroVisible = es[0].isIntersecting; start(); }).observe(cvs);
+document.addEventListener('visibilitychange', start);
 
 addEventListener('resize', resize);
 addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
-resize(); mouse.x = W/2; mouse.y = H/2;
-requestAnimationFrame(loop);
+mouse.x = innerWidth/2; mouse.y = innerHeight/2;
+resize(); start();
 
 /* ---------- scroll effects ---------- */
 const nav = document.getElementById('nav');
