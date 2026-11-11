@@ -42,7 +42,7 @@
   nav ul{display:flex;gap:34px;list-style:none;font-size:14px;font-weight:600}
   nav ul a{color:rgba(255,255,255,.75);transition:color .2s}
   nav ul a:hover{color:var(--mint)}
-  nav.scrolled{background:rgba(255,255,255,.92);backdrop-filter:blur(12px);box-shadow:0 1px 0 var(--line)}
+  nav.scrolled{background:rgba(255,255,255,.97);box-shadow:0 1px 0 var(--line)}
   nav.scrolled .logo{color:var(--ink)}
   nav.scrolled ul a{color:var(--body)}
   nav.scrolled ul a:hover{color:var(--teal)}
@@ -516,7 +516,7 @@
 const PROFILE_IMG = "profile.jpg";
 /* ---------- Drone delivery background ---------- */
 /* 드론 속도 조절: DRONE_SPEED 값을 바꾸면 됩니다 (픽셀/프레임, 작을수록 느림) */
-const DRONE_SPEED = 0.8;
+const DRONE_SPEED = 1.6;   /* 1초에 30번 그리므로 한 번에 2배씩 이동 (화면상 속도는 전과 같음) */
 const cvs = document.getElementById('sky'), ctx = cvs.getContext('2d');
 let W, H, dpr, buildings = [], stars = [], spots = [], depots = [], drones = [], mouse = {x:0, y:0};
 
@@ -529,11 +529,30 @@ function resize(){
   if (!running) loop(true);
 }
 
+/* 별 · 건물 · 창문: 천천히 바뀌므로 1.5초마다 한 번만 그려 둠 */
+function paintStatic(){
+  const x = bgX;
+  x.setTransform(1,0,0,1,0,0); x.drawImage(skyCvs, 0, 0); x.setTransform(dpr,0,0,dpr,0,0);
+  for (const s of stars){ x.globalAlpha = .3 + .3*Math.sin(frame*.03 + s.t);
+    x.fillStyle='#fff'; x.beginPath(); x.arc(s.x, s.y, s.r, 0, 7); x.fill(); }
+  x.globalAlpha = 1;
+  for (const b of buildings){
+    x.fillStyle = b.layer ? '#0c1426' : '#15213d';
+    x.fillRect(b.x, b.ground-b.h, b.w, b.h);
+    for (const w of b.wins){
+      const on = (w.on + frame*.0004) % 1 > .25;
+      x.fillStyle = on ? (b.layer ? 'rgba(253,224,160,.5)' : 'rgba(253,224,160,.15)') : 'rgba(255,255,255,.03)';
+      x.fillRect(w.x, w.y, 4, 6);
+    }
+  }
+  if (buildings[0]){ x.fillStyle='#0c1426'; x.fillRect(0, buildings[0].ground, W, H); }
+}
+
 /* 매 프레임 같은 하늘 · 빛 번짐 · 왼쪽 어둡게 를 미리 한 장으로 그려 둠 (매번 새로 계산하지 않게) */
-let bgCvs, vigCvs;
+let bgCvs, vigCvs, bgX, skyCvs;
 function bakeBg(){
   const mk = () => { const c = document.createElement('canvas'); c.width = W*dpr; c.height = H*dpr; const x = c.getContext('2d'); x.setTransform(dpr,0,0,dpr,0,0); return [c, x]; };
-  let x; [bgCvs, x] = mk();
+  let x; [skyCvs, x] = mk();
   const g = x.createLinearGradient(0,0,0,H);
   g.addColorStop(0,'#0b1120'); g.addColorStop(.6,'#111c35'); g.addColorStop(1,'#16264a');
   x.fillStyle=g; x.fillRect(0,0,W,H);
@@ -543,6 +562,8 @@ function bakeBg(){
   const b2 = x.createRadialGradient(W*.55,H*.75,0,W*.55,H*.75,W*.3);
   b2.addColorStop(0,'rgba(167,139,250,.08)'); b2.addColorStop(1,'rgba(167,139,250,0)');
   x.fillStyle=b2; x.fillRect(0,0,W,H);
+  let y; [bgCvs, y] = mk(); bgX = y;
+  paintStatic();
   [vigCvs, x] = mk();
   const v = x.createLinearGradient(0,0,W*.6,0);
   v.addColorStop(0,'rgba(11,17,32,.8)'); v.addColorStop(1,'rgba(11,17,32,0)');
@@ -620,14 +641,11 @@ function drawDrone(x, y, s, boxes, time, tilt){
 
 let frame = 0, running = false, heroVisible = true;
 function loop(once){
-  frame++;
-  const px = (mouse.x - W/2) * .01;
+  frame += 2;   // 1초에 30번 그리므로 시간 흐름은 2칸씩 (깜박임 · 호버 속도 유지)
 
+  if (frame % 90 === 0) paintStatic();   // 별 반짝임 · 창문 불빛은 1.5초마다만 바꿈
   ctx.setTransform(1,0,0,1,0,0); ctx.drawImage(bgCvs, 0, 0); ctx.setTransform(dpr,0,0,dpr,0,0);
 
-  for (const s of stars){ ctx.globalAlpha = .3 + .3*Math.sin(frame*.03 + s.t);
-    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(s.x - px*.3, s.y, s.r, 0, 7); ctx.fill(); }
-  ctx.globalAlpha = 1;
 
   // 각 드론의 남은 배송 경로(점선) — VRP 경로처럼 보이게
   ctx.setLineDash([3,7]); ctx.lineDashOffset = -frame*.3; ctx.lineWidth=1;
@@ -643,24 +661,13 @@ function loop(once){
   }
   ctx.setLineDash([]);
 
-  for (const b of buildings){
-    const off = b.layer ? px : px*.5;
-    ctx.fillStyle = b.layer ? '#0c1426' : '#15213d';
-    ctx.fillRect(b.x - off, b.ground-b.h, b.w, b.h);
-    for (const w of b.wins){
-      const on = (w.on + frame*.0004) % 1 > .25;
-      ctx.fillStyle = on ? (b.layer ? 'rgba(253,224,160,.5)' : 'rgba(253,224,160,.15)') : 'rgba(255,255,255,.03)';
-      ctx.fillRect(w.x - off, w.y, 4, 6);
-    }
-  }
-  if (buildings[0]){ ctx.fillStyle='#0c1426'; ctx.fillRect(0, buildings[0].ground, W, H); }
 
   // 배송지 표시
   for (const s of spots){
     const r = (frame*.4 + s.p) % 40;
     ctx.strokeStyle=`rgba(94,234,212,${.45 - r/90})`; ctx.lineWidth=1.3;
-    ctx.beginPath(); ctx.ellipse(s.x - px, s.y-2, r*.55, r*.18, 0, 0, 7); ctx.stroke();
-    ctx.fillStyle='#5eead4'; ctx.beginPath(); ctx.arc(s.x - px, s.y-2, 2.2, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(s.x, s.y-2, r*.55, r*.18, 0, 0, 7); ctx.stroke();
+    ctx.fillStyle='#5eead4'; ctx.beginPath(); ctx.arc(s.x, s.y-2, 2.2, 0, 7); ctx.fill();
   }
 
   // 허브
@@ -673,8 +680,8 @@ function loop(once){
   // 드론 이동
   for (let i=0; i<drones.length; i++){
     const d = drones[i];
-    if (d.wait > 0){ d.wait--; continue; }
-    if (d.drop > 0){ d.drop--; }                 // 배송지에서 잠깐 호버링
+    if (d.wait > 0){ d.wait -= 2; continue; }
+    if (d.drop > 0){ d.drop -= 2; }                 // 배송지에서 잠깐 호버링
     else {
       const a = d.route[d.leg], b = d.route[d.leg+1];
       d.t += d.speed / legLen(a,b);
@@ -690,7 +697,7 @@ function loop(once){
     const hover = Math.sin(frame*.06 + i)*2;
     const tilt = Math.max(-.2, Math.min(.2, (p.x - d.x)*.12));
     d.x = p.x; d.y = p.y;
-    d.trail.push({x:p.x, y:p.y+hover}); if (d.trail.length>34) d.trail.shift();
+    d.trail.push({x:p.x, y:p.y+hover}); if (d.trail.length>17) d.trail.shift();
     ctx.strokeStyle='rgba(167,139,250,.32)'; ctx.lineWidth=1.2; ctx.beginPath();
     d.trail.forEach((q,k)=> k ? ctx.lineTo(q.x,q.y) : ctx.moveTo(q.x,q.y)); ctx.stroke();
     const boxesLeft = d.route.length - 2 - d.leg;
@@ -700,11 +707,14 @@ function loop(once){
   ctx.setTransform(1,0,0,1,0,0); ctx.drawImage(vigCvs, 0, 0); ctx.setTransform(dpr,0,0,dpr,0,0);
 
   if (once === true) return;
-  if (heroVisible && !document.hidden) requestAnimationFrame(loop);
+  if (heroVisible && !document.hidden) requestAnimationFrame(tick);
   else running = false;
 }
 /* 첫 화면이 안 보이거나 탭이 숨으면 애니메이션을 멈춤 (스크롤할 때 끊김 방지) */
-function start(){ if (!running && heroVisible && !document.hidden){ running = true; requestAnimationFrame(loop); } }
+/* 1초에 30번만 그림 (60번의 절반) */
+let lastT = 0;
+function tick(t){ if (t - lastT >= 32){ lastT = t; loop(); } else if (heroVisible && !document.hidden) requestAnimationFrame(tick); else running = false; }
+function start(){ if (!running && heroVisible && !document.hidden){ running = true; requestAnimationFrame(tick); } }
 new IntersectionObserver(es => { heroVisible = es[0].isIntersecting; start(); }).observe(cvs);
 document.addEventListener('visibilitychange', start);
 
