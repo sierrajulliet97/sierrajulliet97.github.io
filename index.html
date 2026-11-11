@@ -35,6 +35,9 @@
   nav.scrolled .logo{color:var(--ink)}
   nav.scrolled ul a{color:var(--body)}
   nav.scrolled ul a:hover{color:var(--teal)}
+  .burger{display:none;width:42px;height:42px;border:0;background:none;color:#fff;cursor:pointer;border-radius:10px;place-items:center}
+  .burger svg{display:block}
+  nav.scrolled .burger,nav.open .burger{color:var(--ink)}
 
   /* HERO */
   #hero{position:relative;height:100vh;min-height:680px;background:var(--dark);color:#fff;overflow:hidden;display:flex;flex-direction:column}
@@ -186,6 +189,12 @@
 
   @media (max-width:900px){
     nav ul{display:none}
+    .burger{display:grid}
+    nav.open{background:rgba(255,255,255,.97);box-shadow:0 1px 0 var(--line)}
+    nav.open .logo{color:var(--ink)}
+    nav.open ul{display:flex;flex-direction:column;gap:0;position:absolute;top:72px;left:0;right:0;background:#fff;padding:6px 24px 14px;box-shadow:0 12px 24px -12px rgba(11,17,32,.25)}
+    nav.open ul a{display:block;padding:13px 0;color:var(--body);font-size:16px;border-bottom:1px solid var(--line)}
+    nav.open ul li:last-child a{border-bottom:0}
     .facts{grid-template-columns:1fr}
     .about-top{grid-template-columns:minmax(120px,36%) 1fr;gap:20px}
     .item{grid-template-columns:1fr;gap:4px}
@@ -201,6 +210,7 @@
 <nav id="nav">
   <div class="wrap">
     <a href="#hero" class="logo"><i>SJ</i>Seokjung Kim</a>
+    <button class="burger" id="burger" aria-label="Open menu" aria-expanded="false"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <ul>
       <li><a href="#about">About</a></li>
       <li><a href="#publications">Publications</a></li>
@@ -648,6 +658,11 @@ requestAnimationFrame(loop);
 const nav = document.getElementById('nav');
 const onScroll = () => nav.classList.toggle('scrolled', scrollY > innerHeight - 80);
 addEventListener('scroll', onScroll); onScroll();
+/* 모바일 메뉴: ≡ 버튼으로 열고, 항목을 누르면 닫힘 */
+const burger = document.getElementById('burger');
+const setMenu = open => { nav.classList.toggle('open', open); burger.setAttribute('aria-expanded', open); burger.setAttribute('aria-label', open ? 'Close menu' : 'Open menu'); };
+burger.onclick = () => setMenu(!nav.classList.contains('open'));
+nav.querySelectorAll('ul a').forEach(a => a.addEventListener('click', () => setMenu(false)));
 const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target);} }), {threshold:.12});
 document.querySelectorAll('.reveal').forEach((el,i) => { el.style.transitionDelay = (i%4)*.08+'s'; io.observe(el); });
 setTimeout(()=>document.querySelectorAll('.reveal').forEach(el=>el.classList.add('in')),1500);
