@@ -164,9 +164,6 @@
   .g-wide{flex-basis:444px}
   .g-tall{flex-basis:170px}
   .g-photo{flex-basis:190px}
-  .g-item video{width:100%;height:100%;object-fit:cover;display:block}
-  .lightbox video{width:100%;max-height:80vh;border-radius:18px;background:#000}
-  .lightbox figure:has(video[style*="block"]){max-width:min(960px,94vw)}
   .g-cap{position:absolute;left:10px;bottom:10px;font-size:11px;font-weight:600;color:#fff;background:rgba(11,17,32,.55);padding:4px 9px;border-radius:14px}
   .g-empty{cursor:default;display:grid;place-items:center;border:2px dashed #cbd5e1;background:linear-gradient(140deg,#f0fdfa,#f5f3ff)}
   .g-empty span{color:#94a3b8;font-size:13px;text-align:center;line-height:1.6}
@@ -384,17 +381,17 @@
             <h3>Camping</h3>
           </div>
           <div class="g-strip">
-            <div class="g-item g-wide g-video" data-cap="⛺ Night camping at Hoamsan, Seoul">
-              <video id="hoamsanVid" src="hoamsan.mp4" poster="hoamsan.jpg" autoplay muted loop playsinline preload="auto"></video>
-              <span class="g-cap">▶ Hoamsan, Seoul</span>
+            <div class="g-item g-wide">
+              <img src="hoamsan.jpg" alt="⛺ Night camping at Hoamsan, Seoul">
+              <span class="g-cap">Hoamsan, Seoul</span>
             </div>
-            <div class="g-item g-tall g-video" data-cap="🗻 Fumotoppara, at the foot of Mt. Fuji">
-              <video src="fumotoppara.mp4" poster="fumotoppara.jpg" autoplay muted loop playsinline preload="auto"></video>
-              <span class="g-cap">▶ Fumotoppara, Japan</span>
+            <div class="g-item g-tall">
+              <img src="fumotoppara.jpg" alt="🗻 Fumotoppara, at the foot of Mt. Fuji">
+              <span class="g-cap">Fumotoppara, Japan</span>
             </div>
-            <div class="g-item g-tall g-video" data-cap="⛺ Koan Campsite, Lake Motosu">
-              <video src="koan.mp4" poster="koan.jpg" autoplay muted loop playsinline preload="auto"></video>
-              <span class="g-cap">▶ Koan Campsite, Japan</span>
+            <div class="g-item g-tall">
+              <img src="koan.jpg" alt="⛺ Koan Campsite, Lake Motosu">
+              <span class="g-cap">Koan Campsite, Japan</span>
             </div>
             <div class="g-item g-photo">
               <img src="koan-lake.jpg" alt="🗻 Mt. Fuji from Koan Campsite, Lake Motosu">
@@ -408,9 +405,9 @@
             <h3>Coffee</h3>
           </div>
           <div class="g-strip">
-            <div class="g-item g-tall g-video" data-cap="☕ Hand-drip by Lake Motosu">
-              <video src="handdrip.mp4" poster="handdrip.jpg" autoplay muted loop playsinline preload="auto"></video>
-              <span class="g-cap">▶ Hand-drip, Lake Motosu</span>
+            <div class="g-item g-tall">
+              <img src="handdrip.jpg" alt="☕ Hand-drip by Lake Motosu">
+              <span class="g-cap">Hand-drip, Lake Motosu</span>
             </div>
             <div class="g-item g-photo">
               <img src="coffee-ethiopia.jpg" alt="☕ Ethiopia Sidama Bensa · Lake Motosu">
@@ -449,7 +446,6 @@
 <div class="lightbox" id="lightbox" aria-hidden="true">
   <figure>
     <img src="" alt="Seokjung Kim at Calton Hill, Edinburgh">
-    <video muted loop playsinline controls style="display:none"></video>
     <figcaption id="lbCap"></figcaption>
   </figure>
   <button class="lb-close" aria-label="Close">×</button>
@@ -650,24 +646,12 @@ document.querySelectorAll('.reveal').forEach((el,i) => { el.style.transitionDela
 setTimeout(()=>document.querySelectorAll('.reveal').forEach(el=>el.classList.add('in')),1500);
 const lb=document.getElementById('lightbox');
 document.querySelectorAll('[data-photo="profile"]').forEach(i=>i.src=PROFILE_IMG);
-const lbImg=lb.querySelector('img'), lbVid=lb.querySelector('video');
-/* 영상 자동재생: 음소거 상태로 계속 반복 재생 */
-const vids=[...document.querySelectorAll('.g-video video')];
-const playAll=()=>vids.forEach(v=>v.play().catch(()=>{}));
-const vio=new IntersectionObserver(es=>es.forEach(e=>e.isIntersecting&&e.target.play().catch(()=>{})));
-vids.forEach(v=>{v.muted=true;v.defaultMuted=true;v.addEventListener('canplay',()=>v.play().catch(()=>{}));vio.observe(v);});
-playAll();
-['click','touchstart','scroll'].forEach(ev=>addEventListener(ev,playAll,{once:true,passive:true}));
+const lbImg=lb.querySelector('img');
 document.querySelectorAll('.g-item img').forEach(im=>im.parentElement.onclick=()=>{
-  lbVid.pause(); lbVid.style.display='none'; lbImg.style.display='block';
   lbImg.src=im.src; document.getElementById('lbCap').textContent=im.alt; lb.classList.add('open');
 });
-document.querySelectorAll('.g-video').forEach(t=>t.onclick=()=>{
-  lbImg.style.display='none'; lbVid.style.display='block'; const tv=t.querySelector('video'); lbVid.src=tv.currentSrc||tv.src; lbVid.play().catch(()=>{});
-  document.getElementById('lbCap').textContent=t.dataset.cap; lb.classList.add('open');
-});
-const closeLb=()=>{lb.classList.remove('open'); lbVid.pause();};
-lb.onclick=e=>{ if(!['IMG','VIDEO'].includes(e.target.tagName)) closeLb(); };
+const closeLb=()=>lb.classList.remove('open');
+lb.onclick=e=>{ if(e.target.tagName!=='IMG') closeLb(); };
 addEventListener('keydown',e=>{ if(e.key==='Escape') closeLb(); });
 document.getElementById('yr').textContent = new Date().getFullYear();
 </script>
